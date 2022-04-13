@@ -1,28 +1,37 @@
 import evdev
+import configparser
 
-device = evdev.InputDevice('/dev/input/event256')
+parser = configparser.ConfigParser()
 
-STEERING_EVENT_MARGIN = 5
-GAS_EVENT_MARGIN = 20
-BRAKE_EVENT_MARGIN = 20
+with open('config.ini', "r") as config:
+    parser.read_file(config)
 
-STEERING_AXLE = evdev.ecodes.ABS_RY
-GAS_AXLE = evdev.ecodes.ABS_Y
-BRAKE_AXLE = evdev.ecodes.ABS_Z
+device = evdev.InputDevice(parser.get('DEVICE', 'device'))
+
+STEERING_EVENT_MARGIN = int(parser.get('DEVICE', 'steering_margin'))
+GAS_EVENT_MARGIN = int(parser.get('DEVICE', 'gas_margin'))
+BRAKE_EVENT_MARGIN = int(parser.get('DEVICE', 'brake_margin'))
+
+STEERING_AXLE = evdev.ecodes.ecodes[parser.get('DEVICE', 'steering_axle')]
+GAS_AXLE = evdev.ecodes.ecodes[parser.get('DEVICE', 'gas_axle')]
+BRAKE_AXLE = evdev.ecodes.ecodes[parser.get('DEVICE', 'brake_axle')]
+
+FORWARD = evdev.ecodes.ecodes[parser.get('DEVICE', 'forward_button')]
+REVERSE = evdev.ecodes.ecodes[parser.get('DEVICE', 'reverse_button')]
 
 old_steering = 0
 old_gas = 0
 old_brake = 0
 
-direction = 1 # 0: backwards, 1: forward
+direction = int(parser.get('CAR', 'direction')) # 0: backwards, 1: forward
 
 
 for event in device.read_loop():
     if event.type == evdev.ecodes.EV_KEY:
-        if event.code == evdev.ecodes.BTN_THUMB2:
+        if event.code == FORWARD:
             direction = 1
             print("changing direction to forward")
-        elif event.code == evdev.ecodes.BTN_PINKIE:
+        elif event.code == REVERSE:
             direction = 0
             print("changing direction to backward")
 
