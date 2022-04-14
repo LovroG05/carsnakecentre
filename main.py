@@ -2,17 +2,24 @@ import evdev
 import configparser
 import cv2
 import threading
+import time
+from csv import writer
+from random import randint
 
 
-STEERING_VALUE = 0
-GAS_VALUE = 0
-BRAKE_VALUE = 0
-DIRECTION = 1
 
 parser = configparser.ConfigParser()
 
 with open('config.ini', "r") as config:
     parser.read_file(config)
+
+STEERING_VALUE = 0
+GAS_VALUE = 0
+BRAKE_VALUE = 0
+DIRECTION = int(parser.get('CAR', 'direction'))
+
+FRAMEPATH = parser.get('MISC', 'framepath')
+
 
 
 class ControllerThread(threading.Thread):
@@ -22,6 +29,7 @@ class ControllerThread(threading.Thread):
         self.name = "ControllerThread"
 
     def run(self):
+        global STEERING_VALUE, GAS_VALUE, BRAKE_VALUE, DIRECTION
         print("Starting " + self.name)
 
         device = evdev.InputDevice(parser.get('DEVICE', 'device'))
@@ -41,17 +49,13 @@ class ControllerThread(threading.Thread):
         old_gas = 0
         old_brake = 0
 
-        direction = int(parser.get('CAR', 'direction')) # 0: backwards, 1: forward
-
 
         for event in device.read_loop():
             if event.type == evdev.ecodes.EV_KEY:
                 if event.code == FORWARD:
-                    direction = 1
                     DIRECTION = 1
                     print("changing direction to forward")
                 elif event.code == REVERSE:
-                    direction = 0
                     DIRECTION = 0
                     print("changing direction to backward")
 
@@ -84,12 +88,19 @@ class CameraThread(threading.Thread):
         self.name = "CameraThread"
 
     def run(self):
+        global STEERING_VALUE, GAS_VALUE, BRAKE_VALUE, DIRECTION, FRAMEPATH
         print("Starting " + self.name)
 
-        camera = cv2.VideoCapture()
+        camera = cv2.VideoCapture(0)
 
         while True:
             ret, frame = camera.read()
+            SaveThread(randint(0, 9999), frame).start()
+            
+            # image = cv2.putText(frame, "STEERING: " + str(STEERING_VALUE), (50, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+            # image = cv2.putText(frame, "GAS: " + str(GAS_VALUE), (50, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+            # image = cv2.putText(frame, "BRAKE: " + str(BRAKE_VALUE), (50, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+            # image = cv2.putText(frame, "DIRECTION: " + str(DIRECTION), (50, 120), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
             cv2.imshow('frame', frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
@@ -98,6 +109,24 @@ class CameraThread(threading.Thread):
         cv2.destroyAllWindows()
 
         print("Exiting " + self.name)
+        
+        
+class SaveThread(threading.Thread):
+    def __init__(self, threadID, frame):
+        threading.Thread.__init__(self)
+        self.threadID = threadID
+        self.name = "SaveThread"
+        self.frame = frame
+        
+    def run(self):
+        global STEERING_VALUE, GAS_VALUE, BRAKE_VALUE, DIRECTION, FRAMEPATH
+        t = time.time()
+        cv2.imwrite(FRAMEPATH + str(t) + ".jpg", self.frame)
+        with open("framedata.csv", "a") as file:
+            writer_ = writer(file, delimiter=',', quotechar='"')
+            writer_.writerow([FRAMEPATH + str(t) + ".jpg", str(STEERING_VALUE), str(GAS_VALUE), str(BRAKE_VALUE), str(DIRECTION)])
+            file.close()
+            
 
 
 threads = []
