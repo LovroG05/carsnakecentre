@@ -129,15 +129,5 @@ class SaveThread(threading.Thread):
             
 
 
-threads = []
-
-ctrlThread = ControllerThread(1)
-threads.append(ctrlThread)
-camThread = CameraThread(2)
-threads.append(camThread)
-
-for thread in threads:
-    thread.start()
-
-for thread in threads:
-    thread.join()
+ctrlThread = ControllerThread(1).start()
+camThread = CameraThread(2).start()
