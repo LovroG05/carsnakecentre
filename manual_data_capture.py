@@ -7,6 +7,7 @@ from csv import writer
 from random import randint
 import numpy as np
 from camera_calibration import calibrate
+import sys
 
 
 
@@ -82,40 +83,7 @@ class ControllerThread(threading.Thread):
                         print(f"BRAKE: %i" % event.value)
 
         print("Exiting " + self.name)
-
-
-class CameraThread(threading.Thread):
-    def __init__(self, threadID):
-        threading.Thread.__init__(self)
-        self.threadID = threadID
-        self.name = "CameraThread"
-
-    def run(self):
-        global STEERING_VALUE, GAS_VALUE, BRAKE_VALUE, DIRECTION, FRAMEPATH
-        print("Starting " + self.name)
-
-        camera = cv2.VideoCapture(0)
-
-        while True:
-            ret, frame = camera.read()
-            
-            h,  w = frame.shape[:2]
-            newcameramtx, roi=cv2.getOptimalNewCameraMatrix(MAT, DIST, (w, h), 1, (w, h))
-            dst = cv2.undistort(frame, MAT, DIST, None, newcameramtx)
-            SaveThread(randint(0, 9999), dst).start()
-            
-            # image = cv2.putText(frame, "STEERING: " + str(STEERING_VALUE), (50, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-            # image = cv2.putText(frame, "GAS: " + str(GAS_VALUE), (50, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-            # image = cv2.putText(frame, "BRAKE: " + str(BRAKE_VALUE), (50, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-            # image = cv2.putText(frame, "DIRECTION: " + str(DIRECTION), (50, 120), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-            cv2.imshow('frame', dst)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
-
-        camera.release()
-        cv2.destroyAllWindows()
-
-        print("Exiting " + self.name)
+        sys.exit()
         
         
 class SaveThread(threading.Thread):
@@ -126,15 +94,37 @@ class SaveThread(threading.Thread):
         self.frame = frame
         
     def run(self):
+        print("Starting " + self.name + ": " + str(self.threadID))
+        h,  w = self.frame.shape[:2]
+        newcameramtx, roi=cv2.getOptimalNewCameraMatrix(MAT, DIST, (w, h), 1, (w, h))
+        dst = cv2.undistort(self.frame, MAT, DIST, None, newcameramtx)
         global STEERING_VALUE, GAS_VALUE, BRAKE_VALUE, DIRECTION, FRAMEPATH
         t = time.time()
-        cv2.imwrite(FRAMEPATH + str(t) + ".jpg", self.frame)
+        cv2.imwrite(FRAMEPATH + str(t) + ".jpg", dst)
         with open("framedata.csv", "a") as file:
             writer_ = writer(file, delimiter=',', quotechar='"')
             writer_.writerow([FRAMEPATH + str(t) + ".jpg", str(STEERING_VALUE), str(GAS_VALUE), str(BRAKE_VALUE), str(DIRECTION)])
             file.close()
             
+        print("Exiting " + self.name + ": " + str(self.threadID))
+        sys.exit()
+            
 
 
 ctrlThread = ControllerThread(1).start()
-camThread = CameraThread(2).start()
+
+camera = cv2.VideoCapture(0)
+
+while camera.isOpened():
+    ret, frame = camera.read()
+    cv2.namedWindow("preview", cv2.WINDOW_NORMAL)
+    print("saving frame")
+    SaveThread(randint(0, 9999), frame).start()
+    
+    print("showing frame")
+    cv2.imshow('preview', frame)
+    cv2.waitKey(1)
+    
+
+camera.release()
+cv2.destroyAllWindows()
