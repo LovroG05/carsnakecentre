@@ -113,7 +113,12 @@ class SaveThread(threading.Thread):
 
 ctrlThread = ControllerThread(1).start()
 
-camera = cv2.VideoCapture(0)
+cam = parser.get("CAR", "camera_url")
+
+if cam == "0":
+    cam = 0
+
+camera = cv2.VideoCapture(cam)
 
 while camera.isOpened():
     ret, frame = camera.read()
