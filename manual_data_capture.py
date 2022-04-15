@@ -5,6 +5,8 @@ import threading
 import time
 from csv import writer
 from random import randint
+import numpy as np
+from camera_calibration import calibrate
 
 
 
@@ -20,6 +22,7 @@ DIRECTION = int(parser.get('CAR', 'direction'))
 
 FRAMEPATH = parser.get('MISC', 'framepath')
 
+MAT, DIST, RVECS, TVECS = calibrate()
 
 
 class ControllerThread(threading.Thread):
@@ -95,13 +98,17 @@ class CameraThread(threading.Thread):
 
         while True:
             ret, frame = camera.read()
-            SaveThread(randint(0, 9999), frame).start()
+            
+            h,  w = frame.shape[:2]
+            newcameramtx, roi=cv2.getOptimalNewCameraMatrix(MAT, DIST, (w, h), 1, (w, h))
+            dst = cv2.undistort(frame, MAT, DIST, None, newcameramtx)
+            SaveThread(randint(0, 9999), dst).start()
             
             # image = cv2.putText(frame, "STEERING: " + str(STEERING_VALUE), (50, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
             # image = cv2.putText(frame, "GAS: " + str(GAS_VALUE), (50, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
             # image = cv2.putText(frame, "BRAKE: " + str(BRAKE_VALUE), (50, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
             # image = cv2.putText(frame, "DIRECTION: " + str(DIRECTION), (50, 120), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-            cv2.imshow('frame', frame)
+            cv2.imshow('frame', dst)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
