@@ -8,6 +8,9 @@ from random import randint
 import numpy as np
 from camera_calibration import calibrate
 import sys
+from gpiozero.pins.pigpio import PiGPIOFactory
+from gpiozero import AngularServo, PWMOutputDevice, DigitalOutputDevice
+from time import sleep
 
 
 
@@ -25,12 +28,20 @@ FRAMEPATH = parser.get('MISC', 'framepath')
 
 MAT, DIST, RVECS, TVECS = calibrate()
 
+IN1 = parser.get("DEVICE", "in1")
+IN2 = parser.get("DEVICE", "in2")
+EN = parser.get("DEVICE", "en")
 
 class ControllerThread(threading.Thread):
     def __init__(self, threadID):
         threading.Thread.__init__(self)
         self.threadID = threadID
         self.name = "ControllerThread"
+        factory = PiGPIOFactory(host='192.168.138.57')
+        self.servo = AngularServo(17, min_angle=25, max_angle=120, frame_width=0.02, initial_angle=72, pin_factory=factory)
+        self.throttle = PWMOutputDevice(EN, frequency=1000, pin_factory=factory)
+        self.in1 = DigitalOutputDevice(IN1, pin_factory=factory, initial_value=True)
+        self.in2 = DigitalOutputDevice(IN2, pin_factory=factory, initial_value=False)
 
     def run(self):
         global STEERING_VALUE, GAS_VALUE, BRAKE_VALUE, DIRECTION
@@ -52,6 +63,9 @@ class ControllerThread(threading.Thread):
         old_steering = 0
         old_gas = 0
         old_brake = 0
+        
+        gas_changed = False
+        brake_changed = False
 
 
         for event in device.read_loop():
@@ -66,21 +80,36 @@ class ControllerThread(threading.Thread):
             elif event.type == evdev.ecodes.EV_ABS:
                 if event.code == STEERING_AXLE:
                     if event.value - old_steering > STEERING_EVENT_MARGIN or event.value - old_steering < -STEERING_EVENT_MARGIN:
-                        old_steering = event.value
-                        STEERING_VALUE = event.value
-                        print(f"STEERING: %i" % event.value)
+                        old_steering = angle(event.value)
+                        STEERING_VALUE = angle(event.value)
+                        print(f"STEERING: %i" % STEERING_VALUE)
+                        if STEERING_VALUE <= 120:
+                            self.servo.angle = STEERING_VALUE
+                        elif STEERING_VALUE >= 25:
+                            self.servo.angle = STEERING_VALUE
 
                 if event.code == GAS_AXLE:
                     if event.value - old_gas > GAS_EVENT_MARGIN or event.value - old_gas < -GAS_EVENT_MARGIN:
                         old_gas = event.value
                         GAS_VALUE = event.value
                         print(f"GAS: %i" % event.value)
+                        gas_changed = True
+                    else:
+                        gas_changed = False
 
                 if event.code == BRAKE_AXLE:
                     if event.value - old_brake > BRAKE_EVENT_MARGIN or event.value - old_brake < -BRAKE_EVENT_MARGIN:
                         old_brake = event.value
                         BRAKE_VALUE = event.value
                         print(f"BRAKE: %i" % event.value)
+                        brake_changed = True
+                    else:
+                        brake_changed = False
+                        
+                
+                if (brake_changed or gas_changed):
+                    doThrottle(self.throttle, self.in1, self.in2)
+                    
 
         print("Exiting " + self.name)
         sys.exit()
@@ -108,6 +137,32 @@ class SaveThread(threading.Thread):
             
         print("Exiting " + self.name + ": " + str(self.threadID))
         sys.exit()
+        
+    
+def angle(input):
+    return int(25 + ((120-25) / (1024 - 1)) * (input - 1))
+
+def doThrottle(en, in1, in2):
+    global GAS_VALUE, BRAKE_VALUE
+    g = int(20 + ((650-20)/(20-650))*(GAS_VALUE-650))
+    b = int(20 + ((540-20)/(20-540))*(BRAKE_VALUE-540))
+    
+    print(g, b)
+    
+    value = (g - b) / 1000
+    print(value)
+    if abs(value) < 0.1:
+        in1.off()
+        in2.off()
+        en.value = 0
+    elif value < 0:
+        in1.on()
+        in2.off()
+        en.value = abs(value)
+    elif value > 0:
+        in1.off()
+        in2.on()
+        en.value = value
             
 
 
