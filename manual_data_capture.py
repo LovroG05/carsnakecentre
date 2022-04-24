@@ -23,6 +23,7 @@ STEERING_VALUE = 0
 GAS_VALUE = 0
 BRAKE_VALUE = 0
 DIRECTION = int(parser.get('CAR', 'direction'))
+IP = parser.get('CAR', 'ip')
 
 FRAMEPATH = parser.get('MISC', 'framepath')
 
@@ -37,8 +38,8 @@ class ControllerThread(threading.Thread):
         threading.Thread.__init__(self)
         self.threadID = threadID
         self.name = "ControllerThread"
-        factory = PiGPIOFactory(host='192.168.138.57')
-        self.servo = AngularServo(17, min_angle=25, max_angle=120, frame_width=0.02, initial_angle=72, pin_factory=factory)
+        factory = PiGPIOFactory(host=IP)
+        self.servo = AngularServo(17, min_angle=40, max_angle=100, frame_width=0.02, initial_angle=72, pin_factory=factory)
         self.throttle = PWMOutputDevice(EN, frequency=1000, pin_factory=factory)
         self.in1 = DigitalOutputDevice(IN1, pin_factory=factory, initial_value=True)
         self.in2 = DigitalOutputDevice(IN2, pin_factory=factory, initial_value=False)
@@ -83,9 +84,9 @@ class ControllerThread(threading.Thread):
                         old_steering = angle(event.value)
                         STEERING_VALUE = angle(event.value)
                         print(f"STEERING: %i" % STEERING_VALUE)
-                        if STEERING_VALUE <= 120:
+                        if STEERING_VALUE <= 100:
                             self.servo.angle = STEERING_VALUE
-                        elif STEERING_VALUE >= 25:
+                        elif STEERING_VALUE >= 40:
                             self.servo.angle = STEERING_VALUE
 
                 if event.code == GAS_AXLE:
@@ -140,7 +141,7 @@ class SaveThread(threading.Thread):
         
     
 def angle(input):
-    return int(25 + ((120-25) / (1024 - 1)) * (input - 1))
+    return int(40 + ((100-40) / (1024 - 1)) * (input - 1))
 
 def doThrottle(en, in1, in2):
     global GAS_VALUE, BRAKE_VALUE
