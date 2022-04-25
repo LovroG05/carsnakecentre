@@ -24,6 +24,7 @@ GAS_VALUE = 0
 BRAKE_VALUE = 0
 DIRECTION = int(parser.get('CAR', 'direction'))
 IP = parser.get('CAR', 'ip')
+print(IP)
 
 FRAMEPATH = parser.get('MISC', 'framepath')
 
@@ -32,6 +33,14 @@ MAT, DIST, RVECS, TVECS = calibrate()
 IN1 = parser.get("DEVICE", "in1")
 IN2 = parser.get("DEVICE", "in2")
 EN = parser.get("DEVICE", "en")
+
+devices = [evdev.InputDevice(path) for path in evdev.list_devices()]
+for i in range(len(devices)):
+    print(i, devices[i].name)
+    
+DEVICE = devices[int(input("device number>>> "))]
+print("Selected device: ", DEVICE.name)
+
 
 class ControllerThread(threading.Thread):
     def __init__(self, threadID):
@@ -48,7 +57,7 @@ class ControllerThread(threading.Thread):
         global STEERING_VALUE, GAS_VALUE, BRAKE_VALUE, DIRECTION
         print("Starting " + self.name)
 
-        device = evdev.InputDevice(parser.get('DEVICE', 'device'))
+        device = evdev.InputDevice(DEVICE)
 
         STEERING_EVENT_MARGIN = int(parser.get('DEVICE', 'steering_margin'))
         GAS_EVENT_MARGIN = int(parser.get('DEVICE', 'gas_margin'))
@@ -148,10 +157,8 @@ def doThrottle(en, in1, in2):
     g = int(20 + ((650-20)/(20-650))*(GAS_VALUE-650))
     b = int(20 + ((540-20)/(20-540))*(BRAKE_VALUE-540))
     
-    print(g, b)
-    
     value = (g - b) / 1000
-    print(value)
+    print(g, b, value)
     if abs(value) < 0.1:
         in1.off()
         in2.off()
@@ -173,16 +180,26 @@ cam = parser.get("CAR", "camera_url")
 
 if cam == "0":
     cam = 0
+    
+print(cam)
+    
+width = 1280
+height = 960
+dim = (width, height)
 
 camera = cv2.VideoCapture(cam)
 
+cv2.namedWindow("preview", cv2.WINDOW_NORMAL)
+cv2.resizeWindow("preview", width, height)
+
 while camera.isOpened():
     ret, frame = camera.read()
-    cv2.namedWindow("preview", cv2.WINDOW_NORMAL)
+    
+    frame = cv2.resize(frame, dim, interpolation = cv2.INTER_AREA)
+    
     print("saving frame")
     SaveThread(randint(0, 9999), frame).start()
     
-    print("showing frame")
     cv2.imshow('preview', frame)
     cv2.waitKey(1)
     
