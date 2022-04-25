@@ -11,6 +11,7 @@ import sys
 from gpiozero.pins.pigpio import PiGPIOFactory
 from gpiozero import AngularServo, PWMOutputDevice, DigitalOutputDevice
 from time import sleep
+from copy import copy, deepcopy
 
 
 
@@ -152,6 +153,9 @@ class SaveThread(threading.Thread):
 def angle(input):
     return int(40 + ((100-40) / (1024 - 1)) * (input - 1))
 
+def drawingAngle(input):
+    return int(((-40-40) / (100-40)) * (input - 40) + 40)
+
 def doThrottle(en, in1, in2):
     global GAS_VALUE, BRAKE_VALUE
     g = int(20 + ((650-20)/(20-650))*(GAS_VALUE-650))
@@ -192,15 +196,23 @@ camera = cv2.VideoCapture(cam)
 cv2.namedWindow("preview", cv2.WINDOW_NORMAL)
 cv2.resizeWindow("preview", width, height)
 
+
+
 while camera.isOpened():
     ret, frame = camera.read()
-    
-    frame = cv2.resize(frame, dim, interpolation = cv2.INTER_AREA)
     
     print("saving frame")
     SaveThread(randint(0, 9999), frame).start()
     
-    cv2.imshow('preview', frame)
+    newframe = copy(frame)
+    newframe = cv2.resize(frame, dim, interpolation = cv2.INTER_AREA)
+    
+    
+    box = cv2.boxPoints(((320, 360), (30, 60), float(drawingAngle(STEERING_VALUE))))
+    box = np.int0(box)
+    cv2.drawContours(newframe, [box], 0, (0, 255, 0), 2)
+    
+    cv2.imshow('preview', newframe)
     cv2.waitKey(1)
     
 
