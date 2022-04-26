@@ -40,13 +40,11 @@ if len(devices) > 0:
         
     DEVICE = devices[int(input("device number>>> "))]
     print("Selected device: ", DEVICE.name)
+    SteeringWheelThread(randint(0, 9999), IP, EN, IN1, IN2, DEVICE, parser).start()
 else:
     keyboard = True
-    print("Controls set to keyboard")
-    
-
-
-# TODO: if no device pick keyboard
+    print("Controls set to keyboard - requires sudo")
+    KeyboardThread(randint(0, 9999), IP, EN, IN1, IN2).start()
 
 cam = parser.get("CAR", "camera_url")
 
@@ -124,10 +122,10 @@ while True:
         
         print(left_angle, right_angle)
         
-        cv2.imshow('Window name3', img) # display image while receiving data
-        cv2.imshow('Window name4', canny2) # display image while receiving data
+        cv2.imshow('actual image', img) # display image while receiving data
+        cv2.imshow('the resemblence is unCANNY', canny2) # display image while receiving data
         if cv2.waitKey(1) == 27: # if user hit esc            
             break
         
         
-cv2.destroyWindow('Window name')
+cv2.destroyAllWindows()

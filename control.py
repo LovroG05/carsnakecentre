@@ -45,11 +45,11 @@ class KeyboardThread(threading.Thread):
         sys.exit()
         
 
-class ControllerThread(threading.Thread):
+class SteeringWheelThread(threading.Thread):
     def __init__(self, threadID, IP, EN, IN1, IN2, device, parser):
         threading.Thread.__init__(self)
         self.threadID = threadID
-        self.name = "ControllerThread"
+        self.name = "SteeringWheelThread"
         factory = PiGPIOFactory(host=IP)
         self.servo = AngularServo(17, min_angle=40, max_angle=100, frame_width=0.02, initial_angle=72, pin_factory=factory)
         self.throttle = PWMOutputDevice(EN, frequency=1000, pin_factory=factory)
