@@ -66,8 +66,11 @@ while True:
         total_bytes = total_bytes[b+2:] # other informations
         
         img = cv2.imdecode(np.fromstring(jpg, dtype=np.uint8), cv2.IMREAD_COLOR) 
+        
         newframe = copy(img) 
         newframe3 = copy(img)
+        
+        # SaveThread(randint(0, 9999), newframe3).start() # uncomment this line to enable saving frames
         
         newframe = cv2.cvtColor(newframe, cv2.COLOR_BGR2GRAY)
         newframe = cv2.blur(newframe, (5, 5), 0)
