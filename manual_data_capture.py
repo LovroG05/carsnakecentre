@@ -132,6 +132,9 @@ def angle(input):
 def drawingAngle(input):
     return int(((-40-40) / (100-40)) * (input - 40) + 40)
 
+def camAngle(input):
+    return int(40 + ((100-40) / (-90-90)) * (input - 90))
+
 def doThrottle(en, in1, in2, value=0):    
     if abs(value) < 0.1:
         in1.off()
@@ -148,7 +151,7 @@ def doThrottle(en, in1, in2, value=0):
             
 
 
-ctrlThread = ControllerThread(1).start()
+# ctrlThread = ControllerThread(1).start()
 
 cam = parser.get("CAR", "camera_url")
 
@@ -157,11 +160,18 @@ if cam == "0":
     
 print(cam)
 
+factory = PiGPIOFactory(host=IP)
+servo = AngularServo(17, min_angle=40, max_angle=100, frame_width=0.02, initial_angle=72, pin_factory=factory)
+throttle = PWMOutputDevice(EN, frequency=1000, pin_factory=factory)
+in1 = DigitalOutputDevice(IN1, pin_factory=factory, initial_value=True)
+in2 = DigitalOutputDevice(IN2, pin_factory=factory, initial_value=False)
 
+doThrottle(throttle, in1, in2, 0.3)
 
 stream = urllib.request.urlopen(cam)
 total_bytes = b""
 while True:
+    
     total_bytes += stream.read(1024)
     b = total_bytes.find(b'\xff\xd9') # JPEG end
     if not b == -1:
@@ -198,7 +208,7 @@ while True:
         left_lower_x = 0
         
         right_upper_x = 0
-        left_upper_x = 0
+        right_lower_x = 0
         # first check from l to r for white pixel coords
         for x in range(0, len(upper_row)):
             if upper_row[x] == 255:
@@ -228,11 +238,17 @@ while True:
         
         left_angle = int(math.atan((220-350)/(left_upper_x-left_lower_x)) * 180 / math.pi)
         right_angle = int(math.atan((220-350)/(right_upper_x-right_lower_x)) * 180 / math.pi)
+        avg_angle = (left_angle + right_angle) / 2
+        print(left_angle, right_angle, avg_angle)
         
-        print(left_angle, right_angle)
+        servo.angle = camAngle(avg_angle)
         
         cv2.imshow('Window name3', img) # display image while receiving data
         cv2.imshow('Window name4', canny2) # display image while receiving data
-        if cv2.waitKey(1) ==27: # if user hit esc            
-            break
+        event = keyboard.read_event()
+        if event.event_type == keyboard.KEY_DOWN:
+            if event.name == "q":
+                break
+        
+doThrottle(throttle, in1, in2, 0)
 cv2.destroyWindow('Window name')
