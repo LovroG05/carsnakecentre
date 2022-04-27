@@ -53,6 +53,13 @@ if cam == "0":
     
 print(cam)
 
+factory = PiGPIOFactory(host=IP)
+servo = AngularServo(17, min_angle=40, max_angle=100, frame_width=0.02, initial_angle=72, pin_factory=factory)
+throttle = PWMOutputDevice(EN, frequency=1000, pin_factory=factory)
+in1 = DigitalOutputDevice(IN1, pin_factory=factory, initial_value=True)
+in2 = DigitalOutputDevice(IN2, pin_factory=factory, initial_value=False)
+
+doThrottle(throttle, in1, in2, 0.3)
 
 
 stream = urllib.request.urlopen(cam)
@@ -122,13 +129,15 @@ while True:
         
         left_angle = int(math.atan((220-350)/(left_upper_x-left_lower_x)) * 180 / math.pi)
         right_angle = int(math.atan((220-350)/(right_upper_x-right_lower_x)) * 180 / math.pi)
+        avg_angle = (left_angle + right_angle) / 2
+        print(left_angle, right_angle, avg_angle)
         
-        print(left_angle, right_angle)
+        servo.angle = avg_angle
         
         cv2.imshow('actual image', img) # display image while receiving data
         cv2.imshow('the resemblence is unCANNY', canny2) # display image while receiving data
         if cv2.waitKey(1) == 27: # if user hit esc            
             break
         
-        
+doThrottle(throttle, in1, in2, 0)
 cv2.destroyAllWindows()
