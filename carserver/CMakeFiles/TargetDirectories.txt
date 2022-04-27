@@ -1,0 +1,3 @@
+/home/lovro/Documents/Projects/carserver++/CMakeFiles/carserver.dir
+/home/lovro/Documents/Projects/carserver++/CMakeFiles/edit_cache.dir
+/home/lovro/Documents/Projects/carserver++/CMakeFiles/rebuild_cache.dir

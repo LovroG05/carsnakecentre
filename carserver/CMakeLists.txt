@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 2.8)
+project(carserver)
+find_package(OpenCV REQUIRED)
+find_package(nadjieb_mjpeg_streamer REQUIRED)
+include_directories(${OpenCV_INCLUDE_DIRS})
+add_executable(carserver carserver.cpp)
+target_link_libraries(carserver ${OpenCV_LIBS} nadjieb_mjpeg_streamer::nadjieb_mjpeg_streamer)
