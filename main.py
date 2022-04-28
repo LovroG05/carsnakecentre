@@ -1,7 +1,9 @@
 import configparser
+from tabnanny import verbose
 import cv2
 from random import randint
 import numpy as np
+from pytools import T
 from camera_calibration import calibrate
 from copy import copy
 import urllib.request
@@ -32,19 +34,20 @@ IN1 = parser.get("DEVICE", "in1")
 IN2 = parser.get("DEVICE", "in2")
 EN = parser.get("DEVICE", "en")
 
-keyboard = False
-devices = [evdev.InputDevice(path) for path in evdev.list_devices()]
-if len(devices) > 0:
-    for i in range(len(devices)):
-        print(i, devices[i].name)
+
+# keyboard = False
+# devices = [evdev.InputDevice(path) for path in evdev.list_devices()]
+# if len(devices) > 0:
+#     for i in range(len(devices)):
+#         print(i, devices[i].name)
         
-    DEVICE = devices[int(input("device number>>> "))]
-    print("Selected device: ", DEVICE.name)
-    SteeringWheelThread(randint(0, 9999), IP, EN, IN1, IN2, DEVICE, parser).start()
-else:
-    keyboard = True
-    print("Controls set to keyboard - requires sudo")
-    KeyboardThread(randint(0, 9999), IP, EN, IN1, IN2).start()
+#     DEVICE = devices[int(input("device number>>> "))]
+#     print("Selected device: ", DEVICE.name)
+#     SteeringWheelThread(randint(0, 9999), IP, EN, IN1, IN2, DEVICE, parser).start()
+# else:
+#     keyboard = True
+#     print("Controls set to keyboard - requires sudo")
+#     KeyboardThread(randint(0, 9999), IP, EN, IN1, IN2).start()
 
 cam = parser.get("CAR", "camera_url")
 
@@ -59,7 +62,10 @@ throttle = PWMOutputDevice(EN, frequency=1000, pin_factory=factory)
 in1 = DigitalOutputDevice(IN1, pin_factory=factory, initial_value=True)
 in2 = DigitalOutputDevice(IN2, pin_factory=factory, initial_value=False)
 
-doThrottle(throttle, in1, in2, 0.3)
+doThrottle(throttle, in1, in2, 0.2)
+
+weird_left_angle = False
+weird_right_angle = False
 
 
 stream = urllib.request.urlopen(cam)
@@ -79,8 +85,18 @@ while True:
         
         # SaveThread(randint(0, 9999), newframe3).start() # uncomment this line to enable saving frames
         
-        newframe = cv2.cvtColor(newframe, cv2.COLOR_BGR2GRAY)
-        newframe = cv2.blur(newframe, (5, 5), 0)
+        
+        # Attempt to get only the blue color
+        newframe = cv2.cvtColor(newframe, cv2.COLOR_BGR2HSV)
+        low_blue = np.array([110, 50, 50])
+        upper_blue = np.array([130, 255, 255])
+        
+        mask = cv2.inRange(newframe, low_blue, upper_blue)
+        
+        res = cv2.bitwise_and(newframe, newframe, mask=mask)
+
+        
+        newframe = cv2.blur(res, (5, 5), 0)
         canny = cv2.Canny(newframe, 50, 150, apertureSize=3)
         
         canny2 = copy(canny) 
@@ -92,14 +108,14 @@ while True:
         roi = cv2.fillPoly(blank, [ROI], 255)
         roiimg = cv2.bitwise_and(canny2, roi)
         
-        upper_row = canny2[220]
+        upper_row = canny2[280]
         lower_row = canny2[350]
         
         left_upper_x = 0
         left_lower_x = 0
         
         right_upper_x = 0
-        left_upper_x = 0
+        right_lower_x = 0
         # first check from l to r for white pixel coords
         for x in range(0, len(upper_row)):
             if upper_row[x] == 255:
@@ -122,20 +138,35 @@ while True:
                 right_lower_x = x
                 break
             
-        cv2.line(img, (left_upper_x, 220), (left_lower_x, 350), (255,255,0), 3, cv2.LINE_AA)
-        cv2.line(img, (right_upper_x, 220), (right_lower_x, 350), (255,255,0), 3, cv2.LINE_AA)
-        cv2.line(canny2, (left_upper_x, 220), (left_lower_x, 350), (255,255,0), 3, cv2.LINE_AA)
-        cv2.line(canny2, (right_upper_x, 220), (right_lower_x, 350), (255,255,0), 3, cv2.LINE_AA)
+        cv2.line(img, (left_upper_x, 280), (left_lower_x, 350), (255,255,0), 3, cv2.LINE_AA)
+        cv2.line(img, (right_upper_x, 280), (right_lower_x, 350), (255,255,0), 3, cv2.LINE_AA)
+        cv2.line(canny2, (left_upper_x, 280), (left_lower_x, 350), (255,255,0), 3, cv2.LINE_AA)
+        cv2.line(canny2, (right_upper_x, 280), (right_lower_x, 350), (255,255,0), 3, cv2.LINE_AA)
+        cv2.line(res, (left_upper_x, 280), (left_lower_x, 350), (255,255,0), 3, cv2.LINE_AA)
+        cv2.line(res, (right_upper_x, 280), (right_lower_x, 350), (255,255,0), 3, cv2.LINE_AA)
         
-        left_angle = int(math.atan((220-350)/(left_upper_x-left_lower_x)) * 180 / math.pi)
-        right_angle = int(math.atan((220-350)/(right_upper_x-right_lower_x)) * 180 / math.pi)
-        avg_angle = (left_angle + right_angle) / 2
-        print(left_angle, right_angle, avg_angle)
+        try:
+            left_angle = int(math.atan((280-350)/(left_upper_x-left_lower_x)) * 180 / math.pi)
+            weird_left_angle = False
+        except ZeroDivisionError:
+            print("left line is effed up")
+            weird_left_angle = True
         
-        servo.angle = avg_angle
+        try:
+            right_angle = int(math.atan((280-350)/(right_upper_x-right_lower_x)) * 180 / math.pi)
+            weird_right_angle = False
+        except ZeroDivisionError:
+            print("right line is effed up")
+            weird_right_angle = True
+        
+        try: 
+            servo.angle = camAngle(left_angle, right_angle, weird_left_angle, weird_right_angle)
+        except ZeroDivisionError:
+            break
         
         cv2.imshow('actual image', img) # display image while receiving data
         cv2.imshow('the resemblence is unCANNY', canny2) # display image while receiving data
+        cv2.imshow('res', res) # display image while receiving data
         if cv2.waitKey(1) == 27: # if user hit esc            
             break
         
