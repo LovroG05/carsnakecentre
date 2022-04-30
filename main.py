@@ -1,17 +1,17 @@
 import configparser
-from tabnanny import verbose
 import cv2
 from random import randint
 import numpy as np
-from pytools import T
 from camera_calibration import calibrate
 from copy import copy
-import urllib.request
 import math
-from control import *
+from gpiozero import AngularServo, PWMOutputDevice, DigitalOutputDevice
+from gpiozero.pins.pigpio import PiGPIOFactory
+#from control import *
 from saver import SaveThread
 from interactions import *
-import evdev
+
+
 
 
 parser = configparser.ConfigParser()
@@ -28,12 +28,18 @@ print(IP)
 
 FRAMEPATH = parser.get('MISC', 'framepath')
 
-MAT, DIST, RVECS, TVECS = calibrate()
+#MAT, DIST, RVECS, TVECS = calibrate()
 
 IN1 = parser.get("DEVICE", "in1")
 IN2 = parser.get("DEVICE", "in2")
 EN = parser.get("DEVICE", "en")
 
+
+# Defining variables to hold meter-to-pixel conversion
+ym_per_pix = 0.2 / 80
+# Standard lane width is 3.7 meters divided by lane width in pixels which is
+# calculated to be approximately 720 pixels not to be confused with frame height
+xm_per_pix = 0.18 / 363  
 
 # keyboard = False
 # devices = [evdev.InputDevice(path) for path in evdev.list_devices()]
@@ -49,6 +55,9 @@ EN = parser.get("DEVICE", "en")
 #     print("Controls set to keyboard - requires sudo")
 #     KeyboardThread(randint(0, 9999), IP, EN, IN1, IN2).start()
 
+
+
+
 cam = parser.get("CAR", "camera_url")
 
 if cam == "0":
@@ -62,29 +71,27 @@ throttle = PWMOutputDevice(EN, frequency=1000, pin_factory=factory)
 in1 = DigitalOutputDevice(IN1, pin_factory=factory, initial_value=True)
 in2 = DigitalOutputDevice(IN2, pin_factory=factory, initial_value=False)
 
-doThrottle(throttle, in1, in2, 0.2)
+
 
 weird_left_angle = False
 weird_right_angle = False
 
 
 cam = cv2.VideoCapture(cam)
+
+
     
 while True:
     ret, frame = cam.read()
+    doThrottle(throttle, in1, in2, 0.2)
     if ret:
         
-        img = frame
+        img = copy(frame)
         
-        newframe = copy(img) 
-        newframe3 = copy(img)
+        ROI = img[200:280, 0:480]
         
-        # SaveThread(randint(0, 9999), newframe3).start() # uncomment this line to enable saving frames
-        
-        
-        # Attempt to get only the blue color
-        greyframe = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        newframe = cv2.cvtColor(newframe, cv2.COLOR_BGR2HSV)
+        greyframe = cv2.cvtColor(ROI, cv2.COLOR_BGR2GRAY)
+        newframe = cv2.cvtColor(ROI, cv2.COLOR_BGR2HSV)
         low_blue = np.array([110, 50, 50])
         upper_blue = np.array([130, 255, 255])
         
@@ -99,14 +106,8 @@ while True:
         canny2 = copy(canny) 
         h, w = canny2.shape[:2]
         
-        ROI = np.array([[0, 200], [w, 200], [0, 360], [w, 360]])
-        
-        blank = np.zeros_like(canny2)
-        roi = cv2.fillPoly(blank, [ROI], 255)
-        roiimg = cv2.bitwise_and(canny2, roi)
-        
-        upper_row = canny2[210]
-        lower_row = canny2[280]
+        upper_row = canny2[10]
+        lower_row = canny2[79]
         
         left_upper_x = 0
         left_lower_x = 0
@@ -135,26 +136,28 @@ while True:
                 right_lower_x = x
                 break
             
-        cv2.line(img, (left_upper_x, 210), (left_lower_x, 280), (255,255,0), 3, cv2.LINE_AA)
-        cv2.line(img, (right_upper_x, 210), (right_lower_x, 280), (255,255,0), 3, cv2.LINE_AA)
-        cv2.line(canny2, (left_upper_x, 210), (left_lower_x, 280), (255,255,0), 3, cv2.LINE_AA)
-        cv2.line(canny2, (right_upper_x, 210), (right_lower_x, 280), (255,255,0), 3, cv2.LINE_AA)
-        cv2.line(res, (left_upper_x, 210), (left_lower_x, 280), (255,255,0), 3, cv2.LINE_AA)
-        cv2.line(res, (right_upper_x, 210), (right_lower_x, 280), (255,255,0), 3, cv2.LINE_AA)
+        cv2.line(img, (left_upper_x, 10), (left_lower_x, 79), (255,255,0), 3, cv2.LINE_AA)
+        cv2.line(img, (right_upper_x, 10), (right_lower_x, 79), (255,255,0), 3, cv2.LINE_AA)
+        cv2.line(canny2, (left_upper_x, 10), (left_lower_x, 79), (255,255,0), 3, cv2.LINE_AA)
+        cv2.line(canny2, (right_upper_x, 10), (right_lower_x, 79), (255,255,0), 3, cv2.LINE_AA)
+        cv2.line(res, (left_upper_x, 10), (left_lower_x, 79), (255,255,0), 3, cv2.LINE_AA)
+        cv2.line(res, (right_upper_x, 10), (right_lower_x, 79), (255,255,0), 3, cv2.LINE_AA)
         
         try:
-            left_angle = int(math.atan((210-280)/(left_upper_x-left_lower_x)) * 180 / math.pi)
+            left_angle = int(math.atan((10-79)/(left_upper_x-left_lower_x)) * 180 / math.pi)
             weird_left_angle = False
         except ZeroDivisionError:
             print("left line not detected")
             weird_left_angle = True
+            left_angle = 0
         
         try:
-            right_angle = int(math.atan((210-280)/(right_upper_x-right_lower_x)) * 180 / math.pi)
+            right_angle = int(math.atan((10-79)/(right_upper_x-right_lower_x)) * 180 / math.pi)
             weird_right_angle = False
         except ZeroDivisionError:
             print("right line not detected")
             weird_right_angle = True
+            right_angle = 0
         
         try: 
             servo.angle = camAngle(left_angle, right_angle, weird_left_angle, weird_right_angle)
