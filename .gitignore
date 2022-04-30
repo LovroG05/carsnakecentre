@@ -1,3 +1,5 @@
 frames/*
 framedata.csv
 carserver/CMakeCache.txt
+
+__pycache__/*

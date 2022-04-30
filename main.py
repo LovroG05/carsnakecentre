@@ -68,17 +68,13 @@ weird_left_angle = False
 weird_right_angle = False
 
 
-stream = urllib.request.urlopen(cam)
-total_bytes = b""
+cam = cv2.VideoCapture(cam)
+    
 while True:
-    total_bytes += stream.read(1024)
-    b = total_bytes.find(b'\xff\xd9') # JPEG end
-    if not b == -1:
-        a = total_bytes.find(b'\xff\xd8') # JPEG start
-        jpg = total_bytes[a:b+2] # actual image
-        total_bytes = total_bytes[b+2:] # other informations
+    ret, frame = cam.read()
+    if ret:
         
-        img = cv2.imdecode(np.fromstring(jpg, dtype=np.uint8), cv2.IMREAD_COLOR) 
+        img = frame
         
         newframe = copy(img) 
         newframe3 = copy(img)
@@ -87,6 +83,7 @@ while True:
         
         
         # Attempt to get only the blue color
+        greyframe = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         newframe = cv2.cvtColor(newframe, cv2.COLOR_BGR2HSV)
         low_blue = np.array([110, 50, 50])
         upper_blue = np.array([130, 255, 255])
@@ -108,8 +105,8 @@ while True:
         roi = cv2.fillPoly(blank, [ROI], 255)
         roiimg = cv2.bitwise_and(canny2, roi)
         
-        upper_row = canny2[280]
-        lower_row = canny2[350]
+        upper_row = canny2[210]
+        lower_row = canny2[280]
         
         left_upper_x = 0
         left_lower_x = 0
@@ -138,29 +135,30 @@ while True:
                 right_lower_x = x
                 break
             
-        cv2.line(img, (left_upper_x, 280), (left_lower_x, 350), (255,255,0), 3, cv2.LINE_AA)
-        cv2.line(img, (right_upper_x, 280), (right_lower_x, 350), (255,255,0), 3, cv2.LINE_AA)
-        cv2.line(canny2, (left_upper_x, 280), (left_lower_x, 350), (255,255,0), 3, cv2.LINE_AA)
-        cv2.line(canny2, (right_upper_x, 280), (right_lower_x, 350), (255,255,0), 3, cv2.LINE_AA)
-        cv2.line(res, (left_upper_x, 280), (left_lower_x, 350), (255,255,0), 3, cv2.LINE_AA)
-        cv2.line(res, (right_upper_x, 280), (right_lower_x, 350), (255,255,0), 3, cv2.LINE_AA)
+        cv2.line(img, (left_upper_x, 210), (left_lower_x, 280), (255,255,0), 3, cv2.LINE_AA)
+        cv2.line(img, (right_upper_x, 210), (right_lower_x, 280), (255,255,0), 3, cv2.LINE_AA)
+        cv2.line(canny2, (left_upper_x, 210), (left_lower_x, 280), (255,255,0), 3, cv2.LINE_AA)
+        cv2.line(canny2, (right_upper_x, 210), (right_lower_x, 280), (255,255,0), 3, cv2.LINE_AA)
+        cv2.line(res, (left_upper_x, 210), (left_lower_x, 280), (255,255,0), 3, cv2.LINE_AA)
+        cv2.line(res, (right_upper_x, 210), (right_lower_x, 280), (255,255,0), 3, cv2.LINE_AA)
         
         try:
-            left_angle = int(math.atan((280-350)/(left_upper_x-left_lower_x)) * 180 / math.pi)
+            left_angle = int(math.atan((210-280)/(left_upper_x-left_lower_x)) * 180 / math.pi)
             weird_left_angle = False
         except ZeroDivisionError:
-            print("left line is effed up")
+            print("left line not detected")
             weird_left_angle = True
         
         try:
-            right_angle = int(math.atan((280-350)/(right_upper_x-right_lower_x)) * 180 / math.pi)
+            right_angle = int(math.atan((210-280)/(right_upper_x-right_lower_x)) * 180 / math.pi)
             weird_right_angle = False
         except ZeroDivisionError:
-            print("right line is effed up")
+            print("right line not detected")
             weird_right_angle = True
         
         try: 
             servo.angle = camAngle(left_angle, right_angle, weird_left_angle, weird_right_angle)
+            print(servo.angle)
         except ZeroDivisionError:
             break
         
