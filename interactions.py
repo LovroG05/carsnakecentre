@@ -1,4 +1,4 @@
-import errors.NoBlueLineException
+from errors import NoBlueLineException
 
 def angle(input):
     return int(40 + ((100-40) / (1024 - 1)) * (input - 1))

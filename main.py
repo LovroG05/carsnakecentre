@@ -11,7 +11,7 @@ from saver import SaveThread
 from interactions import *
 import picamera
 import picamera.array
-import errors.NoBlueLineException
+from errors import NoBlueLineException
 
 
 
@@ -125,23 +125,24 @@ for frame in cam.capture_continuous(rawCapture, format="bgr", use_video_port=Tru
     try:
         left_angle = int(math.atan((10-79)/(left_upper_x-left_lower_x)) * 180 / math.pi)
         weird_left_angle = False
-    except ZeroDivisionError:
-        print("left line not detected")
+    except ZeroDivisionError as e:
+        print(e)
         weird_left_angle = True
         left_angle = 0
     
     try:
         right_angle = int(math.atan((10-79)/(right_upper_x-right_lower_x)) * 180 / math.pi)
         weird_right_angle = False
-    except ZeroDivisionError:
-        print("right line not detected")
+    except ZeroDivisionError as e:
+        print(e)
         weird_right_angle = True
         right_angle = 0
     
     try: 
         servo.angle = camAngle(left_angle, right_angle, weird_left_angle, weird_right_angle)
         print(servo.angle)
-    except NoBlueLineException:
+    except NoBlueLineException as e:
+        print(e)
         break
     
     # cv2.imshow('actual image', img) # display image while receiving data
