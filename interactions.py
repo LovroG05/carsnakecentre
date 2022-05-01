@@ -28,4 +28,5 @@ def camAngle(leftin, rightin, leftstate, rightstate):
     else:
         print("ZeroDivisionError somewhere somehow i dont even know anymore")
         raise ZeroDivisionError
-    return int(40 + ((100-40) / (-90-90)) * (input - 90))
+    #print(input, input * 1.0)
+    return 40 + ((100-40) / (-90-90)) * ((input * 1.0) - 90)
