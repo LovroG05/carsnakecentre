@@ -7,11 +7,12 @@ from copy import copy
 import math
 from gpiozero import AngularServo, PWMOutputDevice, DigitalOutputDevice
 from gpiozero.pins.pigpio import PiGPIOFactory
-#from control import *
 from saver import SaveThread
 from interactions import *
 import picamera
 import picamera.array
+import errors.NoBlueLineException
+
 
 
 
@@ -38,36 +39,6 @@ IN2 = parser.get("DEVICE", "in2")
 EN = parser.get("DEVICE", "en")
 
 
-# Defining variables to hold meter-to-pixel conversion
-ym_per_pix = 0.2 / 80
-# Standard lane width is 3.7 meters divided by lane width in pixels which is
-# calculated to be approximately 720 pixels not to be confused with frame height
-xm_per_pix = 0.18 / 363  
-
-# keyboard = False
-# devices = [evdev.InputDevice(path) for path in evdev.list_devices()]
-# if len(devices) > 0:
-#     for i in range(len(devices)):
-#         print(i, devices[i].name)
-        
-#     DEVICE = devices[int(input("device number>>> "))]
-#     print("Selected device: ", DEVICE.name)
-#     SteeringWheelThread(randint(0, 9999), IP, EN, IN1, IN2, DEVICE, parser).start()
-# else:
-#     keyboard = True
-#     print("Controls set to keyboard - requires sudo")
-#     KeyboardThread(randint(0, 9999), IP, EN, IN1, IN2).start()
-
-
-
-
-# cam = parser.get("CAR", "camera_url")
-
-# if cam == "0":
-#     cam = 0
-    
-# print(cam)
-
 factory = PiGPIOFactory()
 servo = AngularServo(17, min_angle=40, max_angle=100, frame_width=0.02, initial_angle=72, pin_factory=factory)
 throttle = PWMOutputDevice(EN, frequency=1000, pin_factory=factory)
@@ -79,12 +50,6 @@ in2 = DigitalOutputDevice(IN2, initial_value=False, pin_factory=factory)
 weird_left_angle = False
 weird_right_angle = False
 
-
-# cam = cv2.VideoCapture(0)
-
-# cam.set(cv2.CAP_PROP_FRAME_WIDTH,640)
-# cam.set(cv2.CAP_PROP_FRAME_HEIGHT,480)
-# cam.set(cv2.CAP_PROP_FPS, 30)
 
 cam = picamera.PiCamera()
 cam.resolution = (640, 480)
@@ -125,7 +90,7 @@ for frame in cam.capture_continuous(rawCapture, format="bgr", use_video_port=Tru
     
     right_upper_x = 0
     right_lower_x = 0
-    # first check from l to r for white pixel coords
+    # first check from l to r for colored pixel coords
     for x in range(0, len(upper_row)):
         if upper_row[x] == 255:
             left_upper_x = x
@@ -136,7 +101,7 @@ for frame in cam.capture_continuous(rawCapture, format="bgr", use_video_port=Tru
             left_lower_x = x
             break
         
-    # then check from r to l for white pixel coords
+    # then check from r to l for colored pixel coords
     for x in range(len(upper_row)-1, 0, -1):
         if upper_row[x] == 255:
             right_upper_x = x
@@ -176,7 +141,7 @@ for frame in cam.capture_continuous(rawCapture, format="bgr", use_video_port=Tru
     try: 
         servo.angle = camAngle(left_angle, right_angle, weird_left_angle, weird_right_angle)
         print(servo.angle)
-    except ZeroDivisionError:
+    except NoBlueLineException:
         break
     
     # cv2.imshow('actual image', img) # display image while receiving data

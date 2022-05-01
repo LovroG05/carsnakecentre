@@ -1,3 +1,5 @@
+import errors.NoBlueLineException
+
 def angle(input):
     return int(40 + ((100-40) / (1024 - 1)) * (input - 1))
 
@@ -26,7 +28,6 @@ def camAngle(leftin, rightin, leftstate, rightstate):
     elif not leftstate and rightstate:
         input = leftin
     else:
-        print("ZeroDivisionError somewhere somehow i dont even know anymore")
-        raise ZeroDivisionError
+        raise NoBlueLineException("No blue line seen on camera")
     #print(input, input * 1.0)
     return 40 + ((100-40) / (-90-90)) * ((input * 1.0) - 90)
